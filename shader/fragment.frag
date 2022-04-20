@@ -23,6 +23,6 @@ void main() {
 
   float gradient = smoothstep(-3., 0., vUv.y);
 
-  gl_FragColor = vec4(color, dist * .2 * gradient);
+  gl_FragColor = vec4(color, 1.);
   // gl_FragColor = vec4(vec2(gradient), 1., 1.);
 }

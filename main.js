@@ -1,13 +1,14 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
+// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+// import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
+import * as dat from 'dat.gui'
 
-import dna from './dna.glb?url'
+// import dna from './dna.glb?url'
 import fragmentShader from './shader/fragment.frag?raw'
 import vertexShader from './shader/vertex.vert?raw'
 
@@ -95,12 +96,13 @@ class Sketch {
       this.domElement.offsetWidth,
       this.domElement.offsetHeight
     )
+    this.gui = new dat.GUI()
 
-    this.gltfLoader = new GLTFLoader()
-    this.dracoLoader = new DRACOLoader()
-    this.dracoLoader.setDecoderPath('/draco/')
-    this.dracoLoader.preload()
-    this.gltfLoader.setDRACOLoader(this.dracoLoader)
+    // this.gltfLoader = new GLTFLoader()
+    // this.dracoLoader = new DRACOLoader()
+    // this.dracoLoader.setDecoderPath('/draco/')
+    // this.dracoLoader.preload()
+    // this.gltfLoader.setDRACOLoader(this.dracoLoader)
 
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(
@@ -122,15 +124,24 @@ class Sketch {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
 
-    this.gltfLoader.load(dna, gltf => {
-      this.geometry = gltf.scene.children[0].geometry
-      this.geometry.center()
-      this.addObject()
-      this.addEventListener()
-      this.effects()
-      this.resize()
-      this.render()
-    })
+    this.addObject()
+    this.initGUI()
+    this.addEventListener()
+    this.effects()
+    this.resize()
+    this.render()
+    // this.gltfLoader.load(dna, gltf => {
+    // this.geometry = gltf.scene.children[0].geometry
+    // this.geometry.center()
+    // })
+  }
+
+  initGUI() {
+    this.settings = {
+      progress: 0,
+    }
+
+    this.gui.add(this.settings, 'progress', 0, 1, 0.01)
   }
 
   effects() {
@@ -149,9 +160,11 @@ class Sketch {
   }
 
   addObject() {
+    this.geometry = new THREE.BufferGeometry()
     this.material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
+        uProgress: { value: 0 },
         uColor1: { value: new THREE.Color(0x612574) },
         uColor2: { value: new THREE.Color(0x293583) },
         uColor3: { value: new THREE.Color(0x612574) },
@@ -164,20 +177,40 @@ class Sketch {
       blending: THREE.AdditiveBlending,
     })
     this.mesh = new THREE.Points(this.geometry, this.material)
-    this.number = this.mesh.geometry.attributes.position.array.length
+    this.number = 90000
 
     const randoms = new Float32Array(this.number / 3)
+    const animationRandoms = new Float32Array(this.number / 3)
     const colorRandoms = new Float32Array(this.number / 3)
+    const positions = new Float32Array(this.number)
 
     for (let i = 0; i < this.number / 3; i++) {
       randoms.set([Math.random()], i)
       colorRandoms.set([Math.random()], i)
+      animationRandoms.set([Math.random()], i)
+
+      const theta = 0.01 * Math.PI * 2 * Math.floor(i / 100)
+      const radius = 0.03 * ((i % 100) - 50)
+
+      const x = Math.cos(theta) * radius
+      const y = 0.1 * Math.floor(i / 100) - 2
+      const z = Math.sin(theta) * radius
+
+      positions.set([x, y, z], i * 3)
     }
 
     this.geometry.setAttribute('randoms', new THREE.BufferAttribute(randoms, 1))
     this.geometry.setAttribute(
+      'offset',
+      new THREE.BufferAttribute(animationRandoms, 1)
+    )
+    this.geometry.setAttribute(
       'colorRandoms',
       new THREE.BufferAttribute(colorRandoms, 1)
+    )
+    this.geometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(positions, 3)
     )
 
     this.scene.add(this.mesh)
@@ -207,6 +240,7 @@ class Sketch {
     const elapsedTime = this.clock.getElapsedTime()
 
     this.material.uniforms.uTime.value = elapsedTime
+    this.material.uniforms.uProgress.value = this.settings.progress
     this.customPass.material.uniforms.time.value = elapsedTime
 
     this.mesh.rotation.y += 0.005
